@@ -125,7 +125,7 @@ def process_message(message: str) -> str:
                 line = ''
                 while len(words) > 0 and len(line) + len(words[0]) < 80:
                     line += words.pop(0) + ' '
-                processed.append("# " + line.rstrip())
+                processed.append(line.rstrip())
         else:
             processed.append('')
 
