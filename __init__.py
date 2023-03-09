@@ -12,7 +12,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import urllib.request
-import json
+import json, re
 import bpy
 bl_info = {
     "name": "BPY Chat GPT",
@@ -106,6 +106,7 @@ class GPT_PT_MainPanel(bpy.types.Panel):
 
 def process_message(message: str) -> str:
     """Process the message to make it more readable"""
+    message = re.sub(r"[\"#/@<>{}`+=|]", "", message)
     lines = message.split('\n')
 
     processed = []
@@ -123,7 +124,7 @@ def process_message(message: str) -> str:
             words = line.split(' ')
             while len(words) > 0:
                 line = ''
-                while len(words) > 0 and len(line) + len(words[0]) < 80:
+                while len(words) > 0:
                     line += words.pop(0) + ' '
                 processed.append(line.rstrip())
         else:
