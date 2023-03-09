@@ -92,7 +92,7 @@ class GPT_PT_MainPanel(bpy.types.Panel):
     bl_idname = 'GPT_PT_MainPanel'
     bl_space_type = 'TEXT_EDITOR'
     bl_region_type = 'UI'
-    bl_category = 'Chat GPT'
+    bl_category = 'Screenwriter'
 
     def draw(self, context):
         layout = self.layout
@@ -137,7 +137,7 @@ def request_answer(text: str) -> str:
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [
-            {"role": "system", "content": "You are a helpful coding assistant for writing python scripts in the 3D software Blender."},
+            {"role": "system", "content": "You are a helpful screenwriting assistant for writing screenplays using fountain screenplay formatting"},
             {"role": "user", "content": text}
         ],
         "temperature": 0,
@@ -182,3 +182,6 @@ def unregister():
     bpy.utils.unregister_class(ChatGPTAddonPreferences)
 
     del bpy.types.Scene.gpt
+
+if __name__ == "__main__":
+    register()
