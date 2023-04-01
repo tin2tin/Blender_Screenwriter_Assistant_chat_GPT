@@ -14,15 +14,16 @@
 import urllib.request
 import json, re
 import bpy
+import textwrap
 bl_info = {
-    "name": "BPY Chat GPT",
+    "name": "Screenwriter Chat GPT",
     "author": "Joshua Knauber",
     "description": "Integrates the Chat GPT API into Blender for script generation",
     "blender": (3, 0, 0),
     "version": (0, 0, 1),
-    "location": "Text Editor -> Properties -> Chat GPT",
+    "location": "Text Editor > Screenplay Tab > Chat GPT ",
     "warning": "",
-    "category": "Development"
+    "category": "Text Editor"
 }
 
 
@@ -39,6 +40,12 @@ class ChatGPTAddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         layout.prop(self, 'api_key')
 
+def label_multiline(context, text, parent):
+    chars = int(context.region.width / 7)
+    wrapper = textwrap.TextWrapper(width=chars)
+    text_lines = [wrapped_line for line in text.splitlines() for wrapped_line in wrapper.wrap(text=line)]
+    [parent.label(text=text_line) for text_line in text_lines]
+
 
 class ChatHistoryItem(bpy.types.PropertyGroup):
 
@@ -51,11 +58,55 @@ class ChatGPTAddonProperties(bpy.types.PropertyGroup):
 
     chat_history: bpy.props.CollectionProperty(type=ChatHistoryItem)
 
+    chat_gpt_select_prefix: bpy.props.StringProperty(
+        name='Select Prefix', description='Selection prefix ext', default='', options={'TEXTEDIT_UPDATE'})
+
     chat_gpt_prefix: bpy.props.StringProperty(
         name='Prefix', description='Prefix text', default='', options={'TEXTEDIT_UPDATE'})
 
     chat_gpt_input: bpy.props.StringProperty(
         name='Input', description='Input text for the Chat GPT API', default='', options={'TEXTEDIT_UPDATE'})
+
+
+
+class GPT_OT_SendSelection(bpy.types.Operator):
+    bl_label = 'Send Selection'
+    bl_idname = 'gpt.send_selection'
+
+    @classmethod
+    def poll(cls, context):
+        gpt = context.scene.gpt
+        return gpt.chat_gpt_select_prefix != ''
+
+    def execute(self, context):
+        gpt = context.scene.gpt
+
+        try:
+            
+            # Get the active text editor
+            text_editor = bpy.context.space_data.text
+
+            # Get the text content
+            text_content = text_editor.as_string()
+            
+            output = process_message(request_selection_answer(gpt.chat_gpt_select_prefix+": "+text_content))
+
+            text = bpy.context.space_data.text
+            if text is None:
+                text = bpy.data.texts.new('Chat GPT')
+                bpy.context.space_data.text = text
+
+            text.write(output)
+
+            item = gpt.chat_history.add()
+            item.input = gpt.chat_gpt_input
+            item.output = output
+            #gpt.chat_gpt_input = ''
+
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+
+        return {'FINISHED'}
 
 
 class GPT_OT_SendMessage(bpy.types.Operator):
@@ -91,7 +142,7 @@ class GPT_OT_SendMessage(bpy.types.Operator):
 
 
 class GPT_PT_MainPanel(bpy.types.Panel):
-    bl_label = 'Chat GPT'
+    bl_label = 'Screenwriter GPT'
     bl_idname = 'GPT_PT_MainPanel'
     bl_space_type = 'TEXT_EDITOR'
     bl_region_type = 'UI'
@@ -100,13 +151,30 @@ class GPT_PT_MainPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         gpt = context.scene.gpt
-        layout.scale_y = 1.25
-        layout.prop(gpt, 'chat_gpt_prefix', text='')
+
+        layout.column(align=True)
+        layout.label(text="Change")
+        row = layout.row(align=True)
+        row.scale_y = 1.25
+        row.prop(gpt, 'chat_gpt_select_prefix', text='')
+        row.operator('gpt.send_selection', text='', icon='PLAY')
+
+        layout = self.layout
+        layout.label(text="Generate")
+        layout = layout.box()
+        wide = layout
+        wide.scale_y = 1.25
+        wide.prop(gpt, 'chat_gpt_prefix', text='') #GPT_OT_SendSelection
 
         row = layout.row(align=True)
 
         row.prop(gpt, 'chat_gpt_input', text='')
         row.operator('gpt.send_message', text='', icon='PLAY')
+        
+        box = layout.column(align=True)
+        box.scale_y = 1
+        text = gpt.chat_gpt_prefix + "\n" + gpt.chat_gpt_input
+        label_multiline(context=context, text=text, parent=box)
 
 
 def process_message(message: str) -> str:
@@ -138,12 +206,40 @@ def process_message(message: str) -> str:
     return '\n'.join(processed)
 
 
+
+def request_selection_answer(text: str) -> str:
+    """Request an answer from the Chat GPT API"""
+    data = {
+        "model": "gpt-4",
+        "messages": [
+            {"role": "system", "content": "You are an assistant doing what your are asked, without commenting."},
+            {"role": "user", "content": text}
+        ],
+        "temperature": 0,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {bpy.context.preferences.addons[__name__].preferences.api_key}",
+    }
+
+    req = urllib.request.Request(ENDPOINT, json.dumps(data).encode(), headers)
+
+    with urllib.request.urlopen(req) as response:
+        answer = json.loads(response.read().decode())
+
+    if 'error' in answer:
+        raise Exception(answer['error']['message'])
+
+    output = answer['choices'][0]['message']['content']
+    return output
+
+
 def request_answer(text: str) -> str:
     """Request an answer from the Chat GPT API"""
     data = {
         "model": "gpt-4",
         "messages": [
-            {"role": "system", "content": "You are a screenwriter helping out writing a screenplay using fountain screenplay formatting"},
+            {"role": "system", "content": "You are a screenwriter helping out writing a screenplay using fountain screenplay formatting. Write emotions as actions. Use subtext. Do not let any character say what they are feeling."},
             {"role": "user", "content": text}
         ],
         "temperature": 0,
@@ -166,6 +262,8 @@ def request_answer(text: str) -> str:
 
 
 def register():
+    bpy.utils.register_class(GPT_OT_SendSelection)
+
     bpy.utils.register_class(GPT_PT_MainPanel)
     bpy.utils.register_class(GPT_OT_SendMessage)
 
@@ -179,6 +277,8 @@ def register():
 
 
 def unregister():
+    bpy.utils.unregister_class(GPT_OT_SendSelection)
+    
     bpy.utils.unregister_class(GPT_PT_MainPanel)
     bpy.utils.unregister_class(GPT_OT_SendMessage)
 
