@@ -17,7 +17,7 @@ import bpy
 import textwrap
 bl_info = {
     "name": "Screenwriter Chat GPT",
-    "author": "Joshua Knauber",
+    "author": "Joshua Knauber, tintwotin",
     "description": "Integrates the Chat GPT API into Blender for script generation",
     "blender": (3, 0, 0),
     "version": (0, 0, 1),
