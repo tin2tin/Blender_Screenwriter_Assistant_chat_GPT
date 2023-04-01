@@ -73,10 +73,10 @@ class GPT_OT_SendSelection(bpy.types.Operator):
     bl_label = 'Send Selection'
     bl_idname = 'gpt.send_selection'
 
-    @classmethod
-    def poll(cls, context):
-        gpt = context.scene.gpt
-        return gpt.chat_gpt_select_prefix != ''
+#    @classmethod
+#    def poll(cls, context):
+#        gpt = context.scene.gpt
+#        return gpt.chat_gpt_select_prefix != ''
 
     def execute(self, context):
         gpt = context.scene.gpt
@@ -89,7 +89,7 @@ class GPT_OT_SendSelection(bpy.types.Operator):
             # Get the text content
             text_content = text_editor.as_string()
             
-            output = process_message(request_selection_answer(gpt.chat_gpt_select_prefix+": "+text_content))
+            output = process_message(request_answer(gpt.chat_gpt_prefix_selection+": "+text_content))
 
             text = bpy.context.space_data.text
             if text is None:
@@ -99,7 +99,7 @@ class GPT_OT_SendSelection(bpy.types.Operator):
             text.write(output)
 
             item = gpt.chat_history.add()
-            item.input = gpt.chat_gpt_input
+            item.input = gpt.chat_gpt_prefix_selection
             item.output = output
             #gpt.chat_gpt_input = ''
 
@@ -152,27 +152,23 @@ class GPT_PT_MainPanel(bpy.types.Panel):
         layout = self.layout
         gpt = context.scene.gpt
 
-        layout.column(align=True)
-        layout.label(text="Change")
+        layout.scale_y = 1.25
+
         row = layout.row(align=True)
-        row.scale_y = 1.25
+
         row.prop(gpt, 'chat_gpt_select_prefix', text='')
         row.operator('gpt.send_selection', text='', icon='PLAY')
 
-        layout = self.layout
-        layout.label(text="Generate")
         layout = layout.box()
-        wide = layout
-        wide.scale_y = 1.25
-        wide.prop(gpt, 'chat_gpt_prefix', text='') #GPT_OT_SendSelection
+        layout.prop(gpt, 'chat_gpt_prefix', text='') #GPT_OT_SendSelection
 
         row = layout.row(align=True)
 
         row.prop(gpt, 'chat_gpt_input', text='')
         row.operator('gpt.send_message', text='', icon='PLAY')
         
+        #box = layout.box()
         box = layout.column(align=True)
-        box.scale_y = 1
         text = gpt.chat_gpt_prefix + "\n" + gpt.chat_gpt_input
         label_multiline(context=context, text=text, parent=box)
 
@@ -204,34 +200,6 @@ def process_message(message: str) -> str:
             processed.append('')
 
     return '\n'.join(processed)
-
-
-
-def request_selection_answer(text: str) -> str:
-    """Request an answer from the Chat GPT API"""
-    data = {
-        "model": "gpt-4",
-        "messages": [
-            {"role": "system", "content": "You are an assistant doing what your are asked, without commenting."},
-            {"role": "user", "content": text}
-        ],
-        "temperature": 0,
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {bpy.context.preferences.addons[__name__].preferences.api_key}",
-    }
-
-    req = urllib.request.Request(ENDPOINT, json.dumps(data).encode(), headers)
-
-    with urllib.request.urlopen(req) as response:
-        answer = json.loads(response.read().decode())
-
-    if 'error' in answer:
-        raise Exception(answer['error']['message'])
-
-    output = answer['choices'][0]['message']['content']
-    return output
 
 
 def request_answer(text: str) -> str:
