@@ -1,4 +1,4 @@
-# Screenplay Assistant
+# Screenwriter Assistant
 
 Use Chat GPT in the blender text editor for generating or rewriting screenplays. It can be used in combination with Blender Screenwriter: https://github.com/tin2tin/Blender_Screenwriter
 
