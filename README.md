@@ -19,7 +19,7 @@ Write got two entry boxes. Since this chatGPT solution do not have any memory, y
 Rewrite is for changing the selection according to the prompt. Ex.
 - "Translate to English"
 - "Improve the grammar"
-- "Fix spelling miskakes"
+- "Fix spelling mistakes"
 - "Insert camera angels and shot descriptions this way [[shot: description]]"
 
 ## Adknowledgement
